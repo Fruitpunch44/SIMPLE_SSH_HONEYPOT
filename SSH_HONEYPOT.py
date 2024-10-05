@@ -18,11 +18,11 @@ args = parser.parse_args()
 try:
     HOST_KEY = paramiko.RSAKey(filename='id_rsa')
 except paramiko.PasswordRequiredException as e:
-    PASS = '12345678'
+    PASS = input('enter the rsa password: ')
     HOST_KEY = paramiko.RSAKey(filename='id_rsa', password=PASS)
 
 port = 2200
-host = '192.168.0.138'
+host = '127.0.0.1'
 
 # set loging file and directory
 ssh_log_dir = 'SSH_LOG'
@@ -43,7 +43,6 @@ logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s:'
 # custom error class
 class Invalid_command(Exception):
     pass
-
 
 # create Filesystem directory
 class FakeFilesystem:

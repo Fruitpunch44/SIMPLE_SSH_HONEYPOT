@@ -18,7 +18,10 @@ args = parser.parse_args()
 try:
     HOST_KEY = paramiko.RSAKey(filename='id_rsa')
 except paramiko.PasswordRequiredException as e:
-    PASS = input('enter the rsa password: ')
+    with open("rsapass.txt","r") as PASS:
+        password=PASS.read().strip()
+        # confirm that it's a string not
+        print(type(password)
     HOST_KEY = paramiko.RSAKey(filename='id_rsa', password=PASS)
 
 port = 2200

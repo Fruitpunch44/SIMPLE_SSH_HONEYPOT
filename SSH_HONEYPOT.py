@@ -14,7 +14,7 @@ parser.add_argument('-P', '--Port', type=int, required=True, help="Specify the g
 
 args = parser.parse_args()
 '''
-# set the host key/Port/Banner
+# set the host key/Port
 try:
     HOST_KEY = paramiko.RSAKey(filename='id_rsa')
 except paramiko.PasswordRequiredException as e:
@@ -23,6 +23,13 @@ except paramiko.PasswordRequiredException as e:
 
 port = 2200
 host = '127.0.0.1'
+
+# special keys at the beginning
+UP_KEY = b'\x1b[A'  # Escape sequence for the up arrow key
+DOWN_KEY = b'\x1b[B'  # Escape sequence for the down arrow key
+LEFT_KEY = b'\x1b[D'  # Escape sequence for the left arrow key
+RIGHT_KEY = b'\x1b[C'  # Escape sequence for the right arrow key
+BACK_KEY = b'\x7f'  # Backspace key
 
 # set loging file and directory
 ssh_log_dir = 'SSH_LOG'
@@ -49,7 +56,7 @@ class FakeFilesystem:
     def __init__(self):
         self.current_dir = "/home/user"
         self.filesystem = {
-            '/': ["etc", "var", "home", "boot", "tmp"],
+            ''/': ["etc", "var", "home", "boot", "tmp"],
             '/home': ["user"],
             '/home/user': ["Desktop", "Music", "Documents", "Downloads", ".ssh"],
             '/home/user/Desktop': ["2024_bank_invoice.txt", "Passport.jpg", "Server_manual.pdf"],
@@ -57,6 +64,39 @@ class FakeFilesystem:
             '/home/user/Documents': ["logs.txt", "notes.txt"],
             '/home/user/Downloads': ["Linuxbasicsforhackers.pdf", "important-notice.pdf", "server_utility_bills.pdf"],
             '/etc ': ["passwd", "shadow", "apache", "ssh", "nginx"],
+            '/etc/passwd ': ["passwd", "shadow", "apache", "ssh", "nginx"],
+            '/etc/passwd': [
+                "root:x:0:0:root:/root:/bin/bash",
+                "daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin",
+                "bin:x:2:2:bin:/bin:/usr/sbin/nologin",
+                "sys:x:3:3:sys:/dev:/usr/sbin/nologin",
+                "sync:x:4:65534:sync:/bin:/bin/sync",
+                "games:x:5:60:games:/usr/games:/usr/sbin/nologin",
+                "man:x:6:12:man:/var/cache/man:/usr/sbin/nologin",
+                "lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin",
+                "mail:x:8:8:mail:/var/mail:/usr/sbin/nologin",
+                "news:x:9:9:news:/var/spool/news:/usr/sbin/nologin",
+                "uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin",
+                "nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin",
+                "user:x:1000:1000::/home/user:/bin/bash"
+            ],
+            '/etc/shadow': [
+                "root:$6$KJ8/7$Km5qJ9QPlJHGH8/OWoPzkJ/Sd3Jw1DnVFWpNEuQ.Tkc33eVJ93JkFZT6Lyvcsuy.PEXYLMh8jj4RmT2jSn9Hv/:19000:0:99999:7:::",
+                "daemon:*:19000:0:99999:7:::",
+                "bin:*:19000:0:99999:7:::",
+                "sys:*:19000:0:99999:7:::",
+                "sync:*:19000:0:99999:7:::",
+                "games:*:19000:0:99999:7:::",
+                "man:*:19000:0:99999:7:::",
+                "lp:*:19000:0:99999:7:::",
+                "mail:*:19000:0:99999:7:::",
+                "news:*:19000:0:99999:7:::",
+                "uucp:*:19000:0:99999:7:::",
+                "nobody:*:19000:0:99999:7:::",
+                "user:$6$randomsalt$Fk32jL3aFS0Ep9/PG1Gv7Nw8B7K4TZLQn8DsFp3hQTXoxK3wsfN/E$1ZmNP3cJnnV/:19000:0:99999:7:::"],
+            '/etc/apache': ["apache_config", "apache_logs"],
+            '/etc/ssh': ["sshd_config", "known_hosts", "ssh_host_rsa_key"],
+            '/etc/nginx': ["nginx.conf", "mime.types", "conf.d"],
             '/home/user/.ssh': ["id_rsa", "id_rsa.pub", "known_hosts"],
             '/boot': ["System.map-6.8.11-amd64", "config-6.8.11-amd64 ", "initrd.img-6.8.11-amd64"],
             '/tmp': []
@@ -86,7 +126,7 @@ class SSH_Server(paramiko.server.ServerInterface):
         return True
 
     def check_auth_password(self, username, password):
-        if (username == 'Admin') and (password == '12345679'):
+        if (username == 'Admin') and (password == '123456789'):
             logging.info(f'Authentication attempt with username:{username} and Password: {password} ')
         return 0
 
@@ -108,33 +148,31 @@ def handle_cmd(cmd, chan):
     cmd = cmd.strip()
 
     if cmd == "ls":
-        response = "".join(file_system.list_files())
-        chan.send(response.encode())
+        response = "\r\n".join(file_system.list_files())
+        chan.send((response + '\r\n').encode())
 
     elif cmd == "pwd":
-        response = file_system.get_current_dir()
+        response = "\r\n".join(file_system.get_current_dir())
         chan.send(response.encode())
 
     elif cmd == "cd":
-        response = 'sorry i do not have that functions'
+        response = 'sorry i do not have that functions \r\n'
         chan.send(response.encode())
 
     elif cmd == "cmd":
-        response = "sorry this is a linux system lol try again"
+        response = "sorry this is a linux system lol try again \r\n"
         chan.send(response.encode())
-        logging.info('received the cd ')
-        raise Invalid_command("invalid command inputted ")
 
     elif cmd == 'whoami':
-        response = 'user'
+        response = 'user\r\n'
         chan.send(response.encode())
 
     elif cmd == "exit":
-        response = 'Good bye'
+        response = 'Good bye\r\n'
         chan.send(response.encode())
         chan.close()
     else:
-        chan.send('invalid command\n')
+        chan.send('invalid command\r\n')
 
 
 def handle_connection(client, addr):
@@ -162,18 +200,34 @@ def handle_connection(client, addr):
             chan.send(message.encode())
             while True:
                 chan.send(b"$: ")
-                cmd=chan.recv(1024).strip()
-                print(f'{cmd}')
-                if not cmd:
-                    break
-                cmd.decode()
-                print(cmd)
-                logging.info(f'{cmd} received')
+                # create buffer to receive commands 
+                command=b''
+                # as long as no carraige return receive inputs
+                while not command.endswith(b'\r'):
+                    cmd=chan.recv(1024)
+                    print(f'received {cmd}')
+                    # Echo input to psuedo-simulate a basic terminal
+                    if (
+                            cmd != UP_KEY
+                            and cmd != DOWN_KEY
+                            and cmd != LEFT_KEY
+                            and cmd != RIGHT_KEY
+                            and cmd != BACK_KEY
+
+                    ):
+                        chan.send(cmd)
+                        command +=cmd
+                chan.send(b'\r\n')
+                # decode the comand and pass on to the handle cmd func
+                command = command.decode("utf-8").strip()
+                logging.info(f'{command} received')
+                
                 # this is not effective just call the function directly instead of
                 # using multiple threads
                 '''chan_thread = threading.Thread(target=handle_cmd, args=(cmd,chan))
                 chan_thread.start()'''
-                handle_cmd(cmd, chan)
+                
+                handle_cmd(command, chan)
 
                 server.event.wait(10)
                 if not server.event.is_set():
